@@ -69,16 +69,30 @@ class ChatError(Exception):
         self.status, self.detail = status, detail
 
 
+REASONING_PREFIXES = ("gpt-5", "o1", "o3", "o4")
+
+
+def _completion_kwargs(model: str) -> dict:
+    """모델 종류에 맞는 생성 옵션.
+
+    gpt-5 계열·o 시리즈(추론 모델)는 max_tokens 대신 max_completion_tokens 를 쓰고
+    temperature 를 바꿀 수 없다. 또 내부 추론에도 토큰을 쓰므로 상한을 넉넉히 둔다.
+    """
+    if model.lower().startswith(REASONING_PREFIXES):
+        return {"max_completion_tokens": max(config.OPENAI_MAX_TOKENS, 2000)}
+    return {"max_tokens": config.OPENAI_MAX_TOKENS, "temperature": 0.4}
+
+
 def _call_gpt(messages: list[dict]) -> str:
     if not config.OPENAI_API_KEY:
         raise ConfigError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
+    # OPENAI_BASE_URL 환경 변수가 있으면 SDK가 자동으로 그 주소(예: 코디세이 게이트웨이)를 사용한다.
     client = OpenAI(api_key=config.OPENAI_API_KEY, timeout=60)
     try:
         res = client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
-            max_tokens=config.OPENAI_MAX_TOKENS,
-            temperature=0.4,
+            **_completion_kwargs(config.OPENAI_MODEL),
         )
     except OpenAIError as e:
         raise ChatError(502, f"AI 응답 생성 중 오류가 발생했습니다: {type(e).__name__}") from e
