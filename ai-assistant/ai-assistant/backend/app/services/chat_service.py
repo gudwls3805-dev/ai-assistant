@@ -2,11 +2,15 @@
 
 흐름: 요약 조회 → 시스템 프롬프트 생성 → GPT 호출 → conversations 자동 저장
 """
-from openai import OpenAI, OpenAIError
+import logging
+
+from openai import APIStatusError, APITimeoutError, OpenAI, OpenAIError
 
 from app import config
 from app.firebase import ConfigError
 from app.services import conversation_service, data_service
+
+logger = logging.getLogger("uvicorn.error")
 
 SYSTEM_TEMPLATE = """당신은 사용자의 '{label}' 데이터를 분석해 주는 데이터 분석 비서입니다.
 
@@ -87,14 +91,22 @@ def _call_gpt(messages: list[dict]) -> str:
     if not config.OPENAI_API_KEY:
         raise ConfigError("OPENAI_API_KEY 환경 변수가 설정되지 않았습니다.")
     # OPENAI_BASE_URL 환경 변수가 있으면 SDK가 자동으로 그 주소(예: 코디세이 게이트웨이)를 사용한다.
-    client = OpenAI(api_key=config.OPENAI_API_KEY, timeout=60)
+    # Render 무료 서버는 약 100초가 지나면 연결을 끊으므로, 재시도 포함 그 안에 끝나도록 제한한다.
+    client = OpenAI(api_key=config.OPENAI_API_KEY, timeout=40, max_retries=1)
     try:
         res = client.chat.completions.create(
             model=config.OPENAI_MODEL,
             messages=messages,
             **_completion_kwargs(config.OPENAI_MODEL),
         )
+    except APITimeoutError as e:
+        logger.error("AI 호출 시간 초과: base_url=%s model=%s", client.base_url, config.OPENAI_MODEL)
+        raise ChatError(504, "AI 응답이 너무 오래 걸려요. 잠시 후 다시 시도해 주세요.") from e
+    except APIStatusError as e:
+        logger.error("AI 호출 실패 %s: %s", e.status_code, e.response.text[:500])
+        raise ChatError(502, f"AI 서버 오류 ({e.status_code}): {e.response.text[:200]}") from e
     except OpenAIError as e:
+        logger.error("AI 호출 오류: %r (base_url=%s)", e, client.base_url)
         raise ChatError(502, f"AI 응답 생성 중 오류가 발생했습니다: {type(e).__name__}") from e
     return (res.choices[0].message.content or "").strip() or "답변을 생성하지 못했어요. 다시 시도해 주세요."
 
