@@ -8,9 +8,9 @@
 
 | 구분 | URL |
 |---|---|
-| 프론트엔드 (Vercel) | `https://<YOUR-APP>.vercel.app` |
-| 백엔드 API (Render) | `https://<YOUR-API>.onrender.com` |
-| Swagger UI | `https://<YOUR-API>.onrender.com/docs` |
+| 프론트엔드 (Vercel) | https://ai-assistant-frontend-delta.vercel.app |
+| 백엔드 API (Render) | https://ai-assistant-xqlg.onrender.com |
+| Swagger UI | https://ai-assistant-xqlg.onrender.com/docs |
 
 > ⚠️ Render 무료 티어는 15분간 요청이 없으면 잠듭니다. 첫 접속 시 최대 1분 정도 걸릴 수 있으며, 프론트엔드가 `/health`로 서버를 먼저 깨우면서 안내 배너를 띄웁니다.
 
@@ -20,7 +20,7 @@
 |---|---|
 | 백엔드 | Python 3.11, FastAPI, Uvicorn, Pydantic v2 |
 | DB | Firebase Firestore (`firebase-admin`) |
-| AI | OpenAI Chat Completions API (`gpt-4o-mini`, `max_tokens` 제한) |
+| AI | OpenAI Chat Completions API (코디세이 OpenAI 호환 게이트웨이, `gpt-5-mini`, 토큰 상한) |
 | 프론트엔드 | HTML / CSS / JavaScript (프레임워크 없음, 그래프도 Canvas 직접 구현) |
 | 배포 | Render (백엔드), Vercel (프론트엔드) |
 | 테스트 | pytest + FastAPI TestClient (Firestore·OpenAI 가짜 객체 사용) |
@@ -100,6 +100,7 @@ ai-assistant/
 | PUT | `/api/data/{id}` | 수정 (보낸 필드만 변경) |
 | DELETE | `/api/data/{id}` | 삭제 |
 | GET | `/api/data/summary` | 요약 (프롬프트 주입용) |
+| POST | `/api/data/import-sample` | 샘플 CSV 181개 일괄 등록 (비어 있을 때만, 중복 시 409) |
 | POST | `/api/conversations` | 대화 저장 `{title?, messages[]}` |
 | GET | `/api/conversations` | 대화 목록 — **messages 미포함** (`message_count`만) |
 | GET | `/api/conversations/{id}` | 특정 대화의 전체 messages (불러오기용, 요구사항 A안) |
@@ -182,8 +183,9 @@ Firestore/OpenAI를 가짜 객체로 바꿔 CRUD, 입력 검증, 컨텍스트 �
 | `OPENAI_API_KEY` | ✅ | OpenAI API 키 |
 | `FIREBASE_SERVICE_ACCOUNT_JSON` | ✅ | 서비스 계정 키 **JSON 전체 문자열** (로컬은 파일 경로도 가능) |
 | `ALLOWED_ORIGINS` | ✅ | CORS 허용 도메인, 쉼표 구분. 예: `https://my-app.vercel.app,http://localhost:5500` |
-| `OPENAI_MODEL` | | 기본 `gpt-4o-mini` |
-| `OPENAI_MAX_TOKENS` | | 기본 `500` (비용 보호) |
+| `OPENAI_BASE_URL` | | OpenAI 호환 게이트웨이 주소. 예: `https://copa.codyssey.kr/v1` |
+| `OPENAI_MODEL` | | 기본 `gpt-5-mini` |
+| `OPENAI_MAX_TOKENS` | | 응답 토큰 상한 (gpt-5 계열은 최소 2000 적용) |
 | `ALLOWED_ORIGIN_REGEX` | | Vercel 프리뷰 도메인 허용용 정규식 |
 | `DATA_LABEL` / `DATA_UNIT` | | 기본 `일별 매출` / `원` |
 | `CHAT_HISTORY_LIMIT` | | GPT에 함께 보낼 이전 메시지 수, 기본 `10` |
@@ -198,20 +200,20 @@ Firestore/OpenAI를 가짜 객체로 바꿔 CRUD, 입력 검증, 컨텍스트 �
 ### 백엔드 → Render
 1. GitHub에 저장소 푸시 (`.env`, 키 파일이 올라가지 않았는지 확인)
 2. Render › **New › Web Service** › 저장소 선택
-   - Root Directory: `backend`
+   - Root Directory: `ai-assistant/ai-assistant/backend` (이 저장소 기준 경로)
    - Build Command: `pip install -r requirements.txt`
    - Start Command: `uvicorn main:app --host 0.0.0.0 --port $PORT`
    - Instance Type: Free
-3. Environment에 위 백엔드 환경 변수 입력 (`PYTHON_VERSION=3.11.9` 권장)
+3. Environment에 위 백엔드 환경 변수 입력 (`PYTHON_VERSION=3.11.9`, 코디세이 키 사용 시 `OPENAI_BASE_URL=https://copa.codyssey.kr/v1`)
    - `FIREBASE_SERVICE_ACCOUNT_JSON`에는 키 파일 내용을 통째로 붙여넣기
-4. 배포 후 `https://<YOUR-API>.onrender.com/docs` 확인
+4. 배포 후 https://ai-assistant-xqlg.onrender.com/docs 확인 → `POST /api/data/import-sample` 실행으로 샘플 데이터 181개 등록
 
 (또는 저장소 루트의 `render.yaml`로 Blueprint 배포)
 
 ### 프론트엔드 → Vercel
 1. Vercel › **Add New › Project** › 같은 저장소 선택
-2. Root Directory: `frontend` (Framework Preset: Other — `vercel.json`이 빌드 설정을 지정)
-3. Environment Variables: `API_BASE_URL=https://<YOUR-API>.onrender.com`
+2. Root Directory: `ai-assistant/ai-assistant/frontend` (Framework Preset: Other — `vercel.json`이 빌드 설정을 지정)
+3. Environment Variables: `API_BASE_URL=https://ai-assistant-xqlg.onrender.com`
 4. Deploy → 발급된 Vercel 도메인을 Render의 `ALLOWED_ORIGINS`에 추가하고 백엔드 재배포
 
 > 바닐라 JS는 브라우저에서 환경 변수를 읽을 수 없기 때문에, `build.js`가 빌드 시점에 `API_BASE_URL`을 읽어 `config.js`를 생성합니다. 프레임워크·번들러는 쓰지 않습니다.
@@ -226,7 +228,7 @@ Firestore/OpenAI를 가짜 객체로 바꿔 CRUD, 입력 검증, 컨텍스트 �
 - **CORS / 환경 변수 / 키 관리** — 프론트(Vercel)와 백엔드(Render)의 도메인이 달라 브라우저가 CORS 허용을 요구하며, 허용 도메인을 명시해야 다른 사이트의 무단 호출을 줄일 수 있습니다. 키가 코드·GitHub에 올라가면 도용·과금 위험이 있으므로 환경 변수로만 주입하고, 로컬과 배포 환경에서 다른 값을 쓸 수 있게 합니다.
 
 ## 비용·운영 주의
-- `OPENAI_MAX_TOKENS=500`, 이전 대화 최대 10개만 전송, 기본 모델 `gpt-4o-mini`
+- 응답 토큰 상한(`OPENAI_MAX_TOKENS`), 이전 대화 최대 10개만 전송, 기본 모델 `gpt-5-mini`
 - 테스트는 가짜 GPT로 먼저 검증 → 실제 키는 마지막에 몇 번만 호출
 - OpenAI 대시보드에서 월 사용 한도 설정 권장
 - 서버 내부 오류 상세는 로그에만 남기고 클라이언트에는 일반 메시지만 반환
