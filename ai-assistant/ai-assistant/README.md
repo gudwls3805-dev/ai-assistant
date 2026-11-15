@@ -235,11 +235,21 @@ Firestore/OpenAI를 가짜 객체로 바꿔 CRUD, 입력 검증, 컨텍스트 �
 
 ## 제출 스크린샷
 
-> 배포 후 직접 캡처해 `docs/screenshots/`에 넣어 주세요.
+### 1. 데이터 요약이 보이는 채팅 화면 (질문 + 답변)
+상단 요약 바(기간·개수·일평균·최대·트렌드)와, 요약 수치를 근거로 한 AI 답변
+![chat](docs/screenshots/chat.png)
 
-| 화면 | 파일 |
-|---|---|
-| 데이터 요약이 보이는 채팅 화면 (질문+답변) | ![chat](docs/screenshots/chat.png) |
-| 데이터 관리 화면 (추가/수정/삭제 중 1개 동작) | ![data](docs/screenshots/data.png) |
-| 대화 기록 화면 (불러오기 동작) | ![history](docs/screenshots/history.png) |
-| Swagger UI | ![swagger](docs/screenshots/swagger.png) |
+### 2. 데이터 관리 화면 (CRUD)
+통계 카드·추세 그래프·추가 폼·목록(수정/삭제 버튼)·CSV/JSON 내보내기
+![data](docs/screenshots/data.png)
+
+### 3. 대화 기록 화면 (불러오기)
+왼쪽 목록에서 이전 대화를 선택해 메시지를 다시 불러온 상태
+![history](docs/screenshots/history.png)
+
+### 4. Swagger UI
+![swagger](docs/screenshots/swagger.png)
+
+### 보너스: 추가 지표 + 시각화
+표준편차·최근 7일 평균·최근 달 비교 지표, 일별 값 + 7일 이동평균 그래프
+![insights](docs/screenshots/insights.png)
